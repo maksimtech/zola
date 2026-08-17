@@ -145,6 +145,15 @@ strip = true
 # and we don't rely on it for debugging that much.
 debug = 0
 
+# The benchmarks are built with this profile, which inherits from `release`.
+# The fat LTO and the single codegen unit make it too slow and too memory hungry
+# to build on CI machines, and we keep the line tables to get readable profiles.
+[profile.bench]
+lto = false
+codegen-units = 16
+strip = false
+debug = "line-tables-only"
+
 [package.metadata.winres]
 OriginalFilename = "zola.exe"
 InternalName = "zola"
