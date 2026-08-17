@@ -2,6 +2,7 @@
 
 [![Build Status](https://dev.azure.com/getzola/zola/_apis/build/status/getzola.zola?branchName=master)](https://dev.azure.com/getzola/zola/_build/latest?definitionId=1&branchName=master)
 ![GitHub all releases](https://img.shields.io/github/downloads/getzola/zola/total)
+[![CodSpeed](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://app.codspeed.io/maksimtech/zola?utm_source=badge)
 
 A fast static site generator in a single binary with everything built-in.
 

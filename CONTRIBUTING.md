@@ -19,6 +19,24 @@ If you want to work on an issue, please mention it in a comment to avoid potenti
 any questions on how to approach it do not hesitate to ping me (@keats).
 Easy issues are tagged with `help wanted` and/or `good first issue`
 
+## Benchmarks
+
+The benchmarks live in `components/*/benches` and use [divan](https://github.com/nvzqz/divan)
+through the CodSpeed compatibility layer. They run on every pull request and the results are
+reported by [CodSpeed](https://app.codspeed.io/maksimtech/zola).
+
+They can be run locally with:
+
+```bash
+cargo codspeed build --workspace
+cargo codspeed run --workspace
+```
+
+`cargo-codspeed` can be installed with `cargo install cargo-codspeed --locked`.
+
+`components/site/benches/gen.py` generates bigger sites if you need to profile Zola on
+something larger than the `test_site` fixture used by the benchmarks.
+
 ## Adding syntax highlighting languages, themes or aliases
 
 Open an issue on the [Giallo repository](https://github.com/getzola/giallo).
