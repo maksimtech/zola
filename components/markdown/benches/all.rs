@@ -1,12 +1,15 @@
-#![feature(test)]
-extern crate test;
-
 use std::collections::HashMap;
 
-use config::Config;
+use config::{Config, HighlightConfig, HighlightStyle, Highlighting, Registry};
+use divan::Bencher;
 use markdown::{RenderContext, render_content};
+use templates::ZOLA_TERA;
 use tera::Tera;
 use utils::types::InsertAnchor;
+
+fn main() {
+    divan::main();
+}
 
 const CONTENT: &str = r#"
 # Modus cognitius profanam ne duae virtutis mundi
@@ -80,86 +83,93 @@ if __name__ == "__main__":
 ```
 "#;
 
-#[bench]
-fn bench_render_content_with_highlighting(b: &mut test::Bencher) {
+fn tera_with_shortcodes() -> Tera {
     let mut tera = Tera::default();
     tera.add_raw_template("shortcodes/youtube.html", "{{id}}").unwrap();
+    tera
+}
+
+fn highlighting() -> Highlighting {
+    let mut registry = Registry::builtin().unwrap();
+    registry.link_grammars();
+
+    Highlighting {
+        error_on_missing_language: false,
+        style: HighlightStyle::Inline,
+        theme: HighlightConfig::Single { theme: "github-dark".to_string() },
+        extra_grammars: vec![],
+        extra_themes: vec![],
+        registry,
+    }
+}
+
+/// Renders `content` with the given config, benching only the rendering itself
+fn bench_render(bencher: Bencher, content: &str, tera: &Tera, config: &Config) {
     let permalinks_ctx = HashMap::new();
-    let mut config = Config::default_for_test();
-    config.markdown.highlight_code = true;
-    let current_page_permalink = "";
     let mut context = RenderContext::new(
-        &tera,
-        &config,
+        tera,
+        config,
         &config.default_language,
-        current_page_permalink,
+        "",
         &permalinks_ctx,
         InsertAnchor::None,
     );
-    let shortcode_def = utils::templates::get_shortcodes(&tera);
+    let shortcode_def = utils::templates::get_shortcodes(tera);
     context.set_shortcode_definitions(&shortcode_def);
-    b.iter(|| render_content(CONTENT, &context).unwrap());
+
+    bencher.bench_local(|| render_content(divan::black_box(content), &context).unwrap());
 }
 
-#[bench]
-fn bench_render_content_without_highlighting(b: &mut test::Bencher) {
-    let mut tera = Tera::default();
-    tera.add_raw_template("shortcodes/youtube.html", "{{id}}").unwrap();
-    let permalinks_ctx = HashMap::new();
+#[divan::bench]
+fn render_content_with_highlighting(bencher: Bencher) {
+    let tera = tera_with_shortcodes();
     let mut config = Config::default_for_test();
-    config.markdown.highlight_code = false;
-    let current_page_permalink = "";
-    let mut context = RenderContext::new(
-        &tera,
-        &config,
-        &config.default_language,
-        current_page_permalink,
-        &permalinks_ctx,
-        InsertAnchor::None,
-    );
-    let shortcode_def = utils::templates::get_shortcodes(&tera);
-    context.set_shortcode_definitions(&shortcode_def);
-    b.iter(|| render_content(CONTENT, &context).unwrap());
+    config.markdown.highlighting = Some(highlighting());
+    bench_render(bencher, CONTENT, &tera, &config);
 }
 
-#[bench]
-fn bench_render_content_no_shortcode(b: &mut test::Bencher) {
-    let tera = Tera::default();
-    let content2 = CONTENT.replace(r#"{{ youtube(id="my_youtube_id") }}"#, "");
-    let mut config = Config::default_for_test();
-    config.markdown.highlight_code = false;
-    let permalinks_ctx = HashMap::new();
-    let current_page_permalink = "";
-    let context = RenderContext::new(
-        &tera,
-        &config,
-        &config.default_language,
-        current_page_permalink,
-        &permalinks_ctx,
-        InsertAnchor::None,
-    );
-
-    b.iter(|| render_content(&content2, &context).unwrap());
+#[divan::bench]
+fn render_content_without_highlighting(bencher: Bencher) {
+    let tera = tera_with_shortcodes();
+    let config = Config::default_for_test();
+    bench_render(bencher, CONTENT, &tera, &config);
 }
 
-#[bench]
-fn bench_render_content_with_emoji(b: &mut test::Bencher) {
-    let tera = Tera::default();
-    let content2 = CONTENT.replace(r#"{{ youtube(id="my_youtube_id") }}"#, "");
-    let mut config = Config::default_for_test();
+#[divan::bench]
+fn render_content_no_shortcode(bencher: Bencher) {
+    let tera = tera_with_shortcodes();
+    let content = CONTENT.replace(r#"{{ youtube(id="my_youtube_id") }}"#, "");
+    let config = Config::default_for_test();
+    bench_render(bencher, &content, &tera, &config);
+}
 
-    config.markdown.highlight_code = false;
+#[divan::bench]
+fn render_content_with_emoji(bencher: Bencher) {
+    let tera = tera_with_shortcodes();
+    let content = CONTENT.replace(r#"{{ youtube(id="my_youtube_id") }}"#, "");
+    let mut config = Config::default_for_test();
     config.markdown.render_emoji = true;
+    bench_render(bencher, &content, &tera, &config);
+}
+
+#[divan::bench]
+fn render_content_with_anchors(bencher: Bencher) {
+    let mut tera = tera_with_shortcodes();
+    // The anchor links rely on a builtin template
+    tera.extend(&ZOLA_TERA).unwrap();
+    let mut config = Config::default_for_test();
+    config.markdown.highlighting = Some(highlighting());
     let permalinks_ctx = HashMap::new();
-    let current_page_permalink = "";
-    let context = RenderContext::new(
+    let mut context = RenderContext::new(
         &tera,
         &config,
         &config.default_language,
-        current_page_permalink,
+        "",
         &permalinks_ctx,
-        InsertAnchor::None,
+        InsertAnchor::Right,
     );
+    let shortcode_def = utils::templates::get_shortcodes(&tera);
+    context.set_shortcode_definitions(&shortcode_def);
 
-    b.iter(|| render_content(&content2, &context).unwrap());
+    bencher.bench_local(|| render_content(divan::black_box(CONTENT), &context).unwrap());
 }
